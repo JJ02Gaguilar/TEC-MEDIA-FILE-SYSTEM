@@ -1,0 +1,5 @@
+<config>
+    <ip>127.0.0.1</ip>
+    <port>5003</port>
+    <path>storage3</path>
+</config>
