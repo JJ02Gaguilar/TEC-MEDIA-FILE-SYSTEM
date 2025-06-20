@@ -1,116 +1,50 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
-import requests
-import json
+import subprocess
 import os
 
-# ---------------------------- Funciones de Cliente ----------------------------
-BLOCK_SIZE = 4096
-
-def dividir_archivo_en_bloques(filepath):
-    with open(filepath, "rb") as f:
-        bloques = []
-        while True:
-            bloque = f.read(BLOCK_SIZE)
-            if not bloque:
-                break
-            bloques.append(bloque)
-    return bloques
-
-def enviar_archivo():
-    filepath = filedialog.askopenfilename()
-    if not filepath:
-        return
-
-    nombre_archivo = os.path.basename(filepath)
-    bloques = dividir_archivo_en_bloques(filepath)
-
-    metadata = {
-        "filename": nombre_archivo,
-        "blocks": []
-    }
-
-    for i, bloque in enumerate(bloques):
-        bloque_str = bloque.decode("latin1")
-        payload = {
-            "block_id": i,
-            "data": bloque_str
-        }
-
-        try:
-            res = requests.post("http://127.0.0.1:5001/store_block", json=payload)
-            if res.status_code == 200:
-                metadata["blocks"].append({
-                    "block_id": i,
-                    "node": "127.0.0.1",
-                    "port": 5001
-                })
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al enviar bloque {i}: {e}")
-            return
-
-    with open(f"metadata_{nombre_archivo}.json", "w") as f:
-        json.dump(metadata, f, indent=4)
-
-    messagebox.showinfo("Éxito", "Archivo enviado y metadatos guardados.")
-
-def reconstruir_archivo():
-    metadata_path = filedialog.askopenfilename(filetypes=[("JSON", "*.json")])
-    if not metadata_path:
+def ejecutar_programa(opcion, archivo_path):
+    ejecutable = "ControllerNodeCPP.exe"  # Asegúrate de que esté en el mismo directorio que este script
+    if not os.path.exists(ejecutable):
+        messagebox.showerror("Error", "No se encuentra el ejecutable ControllerNodeCPP.exe en el directorio actual.")
         return
 
     try:
-        with open(metadata_path, "r") as f:
-            metadata = json.load(f)
-    except:
-        messagebox.showerror("Error", "Archivo de metadatos inválido.")
-        return
+        proceso = subprocess.Popen([ejecutable], stdin=subprocess.PIPE, text=True)
+        proceso.stdin.write(f"{opcion}\n")
+        proceso.stdin.write(f"{archivo_path}\n")
+        proceso.stdin.flush()
+        proceso.stdin.close()
+    except Exception as e:
+        messagebox.showerror("Error al ejecutar", str(e))
 
-    output_file = f"reconstruido_{metadata['filename']}"
-    with open(output_file, "wb") as out:
-        for bloque_info in metadata["blocks"]:
-            try:
-                url = f"http://{bloque_info['node']}:{bloque_info['port']}/read_block/{bloque_info['block_id']}"
-                res = requests.get(url)
-                if res.status_code == 200:
-                    bloque = res.json()["data"].encode("latin1")
-                    out.write(bloque)
-            except:
-                messagebox.showerror("Error", f"No se pudo recuperar el bloque {bloque_info['block_id']}.")
 
-    messagebox.showinfo("Éxito", f"Archivo reconstruido: {output_file}")
+def seleccionar_y_enviar():
+    archivo = filedialog.askopenfilename(title="Seleccionar archivo a enviar")
+    if archivo:
+        ejecutar_programa(1, archivo)
 
-def eliminar_archivo():
-    metadata_path = filedialog.askopenfilename(filetypes=[("JSON", "*.json")])
-    if not metadata_path:
-        return
+def seleccionar_y_reconstruir():
+    archivo = filedialog.askopenfilename(title="Seleccionar archivo de metadatos", filetypes=[("JSON files", "*.json")])
+    if archivo:
+        ejecutar_programa(2, archivo)
 
-    try:
-        with open(metadata_path, "r") as f:
-            metadata = json.load(f)
-    except:
-        messagebox.showerror("Error", "Archivo de metadatos inválido.")
-        return
+def seleccionar_y_eliminar():
+    archivo = filedialog.askopenfilename(title="Seleccionar archivo de metadatos", filetypes=[("JSON files", "*.json")])
+    if archivo:
+        ejecutar_programa(3, archivo)
 
-    for bloque_info in metadata["blocks"]:
-        try:
-            url = f"http://{bloque_info['node']}:{bloque_info['port']}/delete_block/{bloque_info['block_id']}"
-            requests.delete(url)
-        except:
-            pass
+# Interfaz
+ventana = tk.Tk()
+ventana.title("Cliente - Control de Archivos")
+ventana.geometry("500x400")
 
-    os.remove(metadata_path)
-    messagebox.showinfo("Éxito", "Bloques y archivo de metadatos eliminados.")
+tk.Label(ventana, text="Sistema Distribuido - Cliente", font=("Arial", 16)).pack(pady=15)
 
-# ---------------------------- Interfaz Tkinter ----------------------------
+tk.Button(ventana, text="📤 Enviar archivo", width=30, command=seleccionar_y_enviar).pack(pady=10)
+tk.Button(ventana, text="🧱 Reconstruir archivo", width=30, command=seleccionar_y_reconstruir).pack(pady=10)
+tk.Button(ventana, text="❌ Eliminar archivo", width=30, command=seleccionar_y_eliminar).pack(pady=10)
 
-root = tk.Tk()
-root.title("Cliente de Archivos Distribuidos")
+tk.Button(ventana, text="Salir", width=30, command=ventana.destroy).pack(pady=25)
 
-tk.Label(root, text="Cliente - Sistema Distribuido de Archivos", font=("Arial", 14)).pack(pady=10)
-
-tk.Button(root, text="📤 Enviar Archivo", command=enviar_archivo, width=40).pack(pady=5)
-tk.Button(root, text="📥 Reconstruir Archivo", command=reconstruir_archivo, width=40).pack(pady=5)
-tk.Button(root, text="🗑 Eliminar Archivo", command=eliminar_archivo, width=40).pack(pady=5)
-
-root.mainloop()
+ventana.mainloop()
