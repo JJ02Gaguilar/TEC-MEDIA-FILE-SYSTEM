@@ -18,7 +18,7 @@ def dividir_archivo_en_bloques(filepath):
     return bloques
 
 def enviar_archivo():
-    filepath = filedialog.askopenfilename()
+    filepath = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf")])
     if not filepath:
         return
 
@@ -55,7 +55,7 @@ def enviar_archivo():
     messagebox.showinfo("Éxito", "Archivo enviado y metadatos guardados.")
 
 def reconstruir_archivo():
-    metadata_path = filedialog.askopenfilename(filetypes=[("JSON", "*.json")])
+    metadata_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
     if not metadata_path:
         return
 
@@ -81,7 +81,7 @@ def reconstruir_archivo():
     messagebox.showinfo("Éxito", f"Archivo reconstruido: {output_file}")
 
 def eliminar_archivo():
-    metadata_path = filedialog.askopenfilename(filetypes=[("JSON", "*.json")])
+    metadata_path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
     if not metadata_path:
         return
 
@@ -103,14 +103,15 @@ def eliminar_archivo():
     messagebox.showinfo("Éxito", "Bloques y archivo de metadatos eliminados.")
 
 # ---------------------------- Interfaz Tkinter ----------------------------
+ventana = tk.Tk()
+ventana.title("Gestor de Archivos PDF Distribuidos")
+ventana.geometry("600x400")
 
-root = tk.Tk()
-root.title("Cliente de Archivos Distribuidos")
+tk.Label(ventana, text="Cliente - Sistema Distribuido de Archivos", font=("Arial", 14)).pack(pady=10)
 
-tk.Label(root, text="Cliente - Sistema Distribuido de Archivos", font=("Arial", 14)).pack(pady=10)
-
-tk.Button(root, text="📤 Enviar Archivo", command=enviar_archivo, width=40).pack(pady=5)
-tk.Button(root, text="📥 Reconstruir Archivo", command=reconstruir_archivo, width=40).pack(pady=5)
-tk.Button(root, text="🗑 Eliminar Archivo", command=eliminar_archivo, width=40).pack(pady=5)
+tk.Button(ventana, text="📤 Enviar Archivo PDF", command=enviar_archivo, width=40).pack(pady=5)
+tk.Button(ventana, text="📥 Reconstruir Archivo", command=reconstruir_archivo, width=40).pack(pady=5)
+tk.Button(ventana, text="🗑️ Eliminar Archivo", command=eliminar_archivo, width=40).pack(pady=5)
+tk.Button(ventana, text="Salir", command=ventana.destroy, width=40).pack(pady=20)
 
 ventana.mainloop()
