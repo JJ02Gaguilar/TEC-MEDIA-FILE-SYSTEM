@@ -1,100 +1,116 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
-import subprocess
-import os
+import requests
 import json
+import os
 
-def seleccionar_pdf():
-    file_path = filedialog.askopenfilename(
-        title="Seleccionar archivo PDF",
-        filetypes=[("Archivos PDF", "*.pdf")]
-    )
-    if file_path:
-        entry_archivo.delete(0, tk.END)
-        entry_archivo.insert(0, file_path)
+# ---------------------------- Funciones de Cliente ----------------------------
+BLOCK_SIZE = 4096
 
-def seleccionar_metadatos():
-    file_path = filedialog.askopenfilename(
-        title="Seleccionar archivo de metadatos",
-        filetypes=[("Archivos JSON", "metadata_*.json")]
-    )
-    if file_path:
-        entry_metadatos.delete(0, tk.END)
-        entry_metadatos.insert(0, file_path)
+def dividir_archivo_en_bloques(filepath):
+    with open(filepath, "rb") as f:
+        bloques = []
+        while True:
+            bloque = f.read(BLOCK_SIZE)
+            if not bloque:
+                break
+            bloques.append(bloque)
+    return bloques
 
-def ejecutar_cpp_con_argumento(opcion, argumento):
-    ejecutable = "ControllerNodeCPP.exe"
-    if not os.path.exists(ejecutable):
-        messagebox.showerror("Error", "No se encuentra el ejecutable ControllerNodeCPP.exe.")
+def enviar_archivo():
+    filepath = filedialog.askopenfilename()
+    if not filepath:
+        return
+
+    nombre_archivo = os.path.basename(filepath)
+    bloques = dividir_archivo_en_bloques(filepath)
+
+    metadata = {
+        "filename": nombre_archivo,
+        "blocks": []
+    }
+
+    for i, bloque in enumerate(bloques):
+        bloque_str = bloque.decode("latin1")
+        payload = {
+            "block_id": i,
+            "data": bloque_str
+        }
+
+        try:
+            res = requests.post("http://127.0.0.1:5001/store_block", json=payload)
+            if res.status_code == 200:
+                metadata["blocks"].append({
+                    "block_id": i,
+                    "node": "127.0.0.1",
+                    "port": 5001
+                })
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al enviar bloque {i}: {e}")
+            return
+
+    with open(f"metadata_{nombre_archivo}.json", "w") as f:
+        json.dump(metadata, f, indent=4)
+
+    messagebox.showinfo("Éxito", "Archivo enviado y metadatos guardados.")
+
+def reconstruir_archivo():
+    metadata_path = filedialog.askopenfilename(filetypes=[("JSON", "*.json")])
+    if not metadata_path:
         return
 
     try:
-        proceso = subprocess.Popen([ejecutable], stdin=subprocess.PIPE, text=True)
-        proceso.communicate(f"{opcion}\n{argumento}\n")
-        return True
-    except Exception as e:
-        messagebox.showerror("Error al ejecutar", str(e))
-        return False
-
-def enviar_archivo():
-    path = entry_archivo.get()
-    if not path or not path.endswith(".pdf"):
-        messagebox.showwarning("Archivo inválido", "Debe seleccionar un archivo PDF válido.")
+        with open(metadata_path, "r") as f:
+            metadata = json.load(f)
+    except:
+        messagebox.showerror("Error", "Archivo de metadatos inválido.")
         return
-    nombre = os.path.basename(path)
-    destino = os.path.join(os.getcwd(), nombre)
-    if path != destino:
-        with open(path, "rb") as src, open(destino, "wb") as dst:
-            dst.write(src.read())
-    if ejecutar_cpp_con_argumento(1, nombre):
-        messagebox.showinfo("Éxito", f"Archivo '{nombre}' enviado correctamente.")
 
-def reconstruir_archivo():
-    path = entry_metadatos.get()
-    if not path.endswith(".json"):
-        messagebox.showwarning("Archivo inválido", "Debe seleccionar un archivo JSON válido.")
-        return
-    nombre = os.path.basename(path)
-    if ejecutar_cpp_con_argumento(2, nombre):
-        try:
-            with open(path, "r") as f:
-                metadata = json.load(f)
-                original = os.path.basename(metadata["filename"])
-                resultado = os.path.join(os.getcwd(), f"reconstruido_{original}")
-                if os.path.exists(resultado):
-                    os.startfile(resultado)
-                    messagebox.showinfo("Reconstruido", f"Archivo reconstruido y abierto: {resultado}")
-        except Exception as e:
-            messagebox.showwarning("Reconstruido", "Archivo reconstruido pero no se pudo abrir.")
+    output_file = f"reconstruido_{metadata['filename']}"
+    with open(output_file, "wb") as out:
+        for bloque_info in metadata["blocks"]:
+            try:
+                url = f"http://{bloque_info['node']}:{bloque_info['port']}/read_block/{bloque_info['block_id']}"
+                res = requests.get(url)
+                if res.status_code == 200:
+                    bloque = res.json()["data"].encode("latin1")
+                    out.write(bloque)
+            except:
+                messagebox.showerror("Error", f"No se pudo recuperar el bloque {bloque_info['block_id']}.")
+
+    messagebox.showinfo("Éxito", f"Archivo reconstruido: {output_file}")
 
 def eliminar_archivo():
-    path = entry_metadatos.get()
-    if not path.endswith(".json"):
-        messagebox.showwarning("Archivo inválido", "Debe seleccionar un archivo JSON válido.")
+    metadata_path = filedialog.askopenfilename(filetypes=[("JSON", "*.json")])
+    if not metadata_path:
         return
-    nombre = os.path.basename(path)
-    if ejecutar_cpp_con_argumento(3, nombre):
-        messagebox.showinfo("Eliminado", f"Bloques y metadatos de '{nombre}' eliminados.")
 
-# GUI
-ventana = tk.Tk()
-ventana.title("Gestor de Archivos PDF Distribuidos")
-ventana.geometry("600x400")
+    try:
+        with open(metadata_path, "r") as f:
+            metadata = json.load(f)
+    except:
+        messagebox.showerror("Error", "Archivo de metadatos inválido.")
+        return
 
-tk.Label(ventana, text="Archivo PDF:", font=("Arial", 11)).pack(pady=5)
-entry_archivo = tk.Entry(ventana, width=60)
-entry_archivo.pack(pady=2)
-tk.Button(ventana, text="Seleccionar PDF", command=seleccionar_pdf).pack(pady=2)
-tk.Button(ventana, text="Enviar archivo", command=enviar_archivo).pack(pady=8)
+    for bloque_info in metadata["blocks"]:
+        try:
+            url = f"http://{bloque_info['node']}:{bloque_info['port']}/delete_block/{bloque_info['block_id']}"
+            requests.delete(url)
+        except:
+            pass
 
-tk.Label(ventana, text="Archivo de metadatos:", font=("Arial", 11)).pack(pady=5)
-entry_metadatos = tk.Entry(ventana, width=60)
-entry_metadatos.pack(pady=2)
-tk.Button(ventana, text="Seleccionar metadatos", command=seleccionar_metadatos).pack(pady=2)
+    os.remove(metadata_path)
+    messagebox.showinfo("Éxito", "Bloques y archivo de metadatos eliminados.")
 
-tk.Button(ventana, text="Reconstruir archivo", command=reconstruir_archivo).pack(pady=8)
-tk.Button(ventana, text="Eliminar archivo", command=eliminar_archivo).pack(pady=4)
+# ---------------------------- Interfaz Tkinter ----------------------------
 
-tk.Button(ventana, text="Salir", command=ventana.destroy).pack(pady=20)
+root = tk.Tk()
+root.title("Cliente de Archivos Distribuidos")
+
+tk.Label(root, text="Cliente - Sistema Distribuido de Archivos", font=("Arial", 14)).pack(pady=10)
+
+tk.Button(root, text="📤 Enviar Archivo", command=enviar_archivo, width=40).pack(pady=5)
+tk.Button(root, text="📥 Reconstruir Archivo", command=reconstruir_archivo, width=40).pack(pady=5)
+tk.Button(root, text="🗑 Eliminar Archivo", command=eliminar_archivo, width=40).pack(pady=5)
 
 ventana.mainloop()
