@@ -4,7 +4,7 @@ Caracteristicas principales:
 - Soporte para archivos PDF y otros formatos
 - División en bloques de 4096 bytes (RAID 5)
 - Interfaz gráfica en Python (Tkinter)
-- ⚙Controlador en C++ para gestión de bloques
+- Controlador en C++ para gestión de bloques
 - Comunicación REST entre cliente y nodos
 - Tolerancia a fallos: soporta pérdida de un nodo
 - Buscar documentos por nombre
