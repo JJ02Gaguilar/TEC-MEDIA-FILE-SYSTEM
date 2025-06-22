@@ -109,9 +109,9 @@ ventana.geometry("600x400")
 
 tk.Label(ventana, text="Cliente - Sistema Distribuido de Archivos", font=("Arial", 14)).pack(pady=10)
 
-tk.Button(ventana, text="📤 Enviar Archivo PDF", command=enviar_archivo, width=40).pack(pady=5)
-tk.Button(ventana, text="📥 Reconstruir Archivo", command=reconstruir_archivo, width=40).pack(pady=5)
-tk.Button(ventana, text="🗑️ Eliminar Archivo", command=eliminar_archivo, width=40).pack(pady=5)
+tk.Button(ventana, text="Enviar Archivo PDF", command=enviar_archivo, width=40).pack(pady=5)
+tk.Button(ventana, text="Reconstruir Archivo", command=reconstruir_archivo, width=40).pack(pady=5)
+tk.Button(ventana, text="Eliminar Archivo", command=eliminar_archivo, width=40).pack(pady=5)
 tk.Button(ventana, text="Salir", command=ventana.destroy, width=40).pack(pady=20)
 
 ventana.mainloop()
